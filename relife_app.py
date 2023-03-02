@@ -18,13 +18,6 @@ ReLife is an open source Python library for asset management based on reliabilit
 - Renewal theory: expected number of events, expected total costs or expected number of replacements for run-to-failures or age replacement policies.
 
 The official documentation is available [here](https://rte-france.github.io/relife/).
-
-
-Survivorship bias or survival bias is the logical error of concentrating on entities that passed a selection process while overlooking those that did not. This can lead to incorrect conclusions because of incomplete data.
-
-Survivorship bias is a form of selection bias that can lead to overly optimistic beliefs because multiple failures are overlooked, such as when companies that no longer exist are excluded from analyses of financial performance. It can also lead to the false belief that the successes in a group have some special property, rather than just coincidence as in correlation "proves" causality.
-
-Another kind of survivorship bias would involve thinking that an incident was not all that dangerous because the only people who were involved in the incident who can speak about it are those who survived it. Even if one knew that some people are dead, they would not have their voice to add to the conversation, leading to bias in the conversation. 
 """)
 
 import numpy as np
@@ -33,34 +26,37 @@ from relife.datasets import load_circuit_breaker
 from relife import KaplanMeier, Weibull, Gompertz, AgeReplacementPolicy
 
 time, event, entry = load_circuit_breaker().astuple()
+
+choice = st.radio('Choisissez une loi de survie', ['Weibull', 'Gompertz', 'Kaplan-Meier uniquement'])
+
 km = KaplanMeier().fit(time,event,entry)
 weibull = Weibull().fit(time,event,entry)
 gompertz = Gompertz().fit(time,event,entry)
 
+plt.figure(figsize=(12, 8))
+
 km.plot()
-weibull.plot()
-gompertz.plot()
+if choice == 'Weibull':
+    weibull.plot()
+if choice == 'Gompertz':
+    gompertz.plot()
+
+plt.xticks(np.arange(0, 160, 20))
 plt.xlabel('Age [year]')
 plt.ylabel('Survival probability')
 
 st.pyplot()
 
-a0 = np.array([15, 20, 25]).reshape(-1,1)
-cp = 10
-cf = np.array([900, 500, 100]).reshape(-1,1)
-policy = AgeReplacementPolicy(gompertz, a0=a0, cf=cf, cp=cp, rate=0.04)
-policy.fit()
-st.table(policy.ar1)
-st.table(policy.ar)
+df = pd.DataFrame(data={'time': time, 'event': event, 'entry': entry})
 
-a = np.arange(1,100,0.1)
-za = policy.asymptotic_expected_equivalent_annual_cost(a)
-za_opt = policy.asymptotic_expected_equivalent_annual_cost()
-plt.plot(a, za.T)
-for i, ar in enumerate(policy.ar):
-    plt.scatter(ar, za_opt[i], c=f'C{i}', label=f" cf={cf[i,0]} k€, ar={ar[0]:0.1f} years")
-plt.xlabel('Age of preventive replacement [years]')
-plt.ylabel('Asymptotic expected equivalent annual cost [k€]')
-plt.legend()
+st.download_button(
+    label="Download data as CSV",
+    data=df.to_csv().encode('utf-8'),
+    file_name='large_df.csv',
+    mime='text/csv',
+)
 
-st.pyplot()
+uploaded_file = st.file_uploader("Choose a CSV file", accept_multiple_files=False)
+if uploaded_file is not None:
+    bytes_data = uploaded_file.read()
+    st.write("filename:", uploaded_file.name)
